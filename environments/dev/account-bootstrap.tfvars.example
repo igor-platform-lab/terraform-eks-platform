@@ -1,0 +1,11 @@
+aws_region        = "us-east-2"
+aws_profile       = "terraform-dev"
+environment       = "dev"
+state_bucket_name = "<NOME_GLOBALMENTE_UNICO_DO_BUCKET_DEV>"
+
+# Copie o subject exato do seu repositório (incluindo IDs imutáveis, se usados).
+github_subjects = ["repo:SEU_USUARIO/SEU_REPOSITORIO:environment:dev"]
+
+# Permissão administrativa ampla, como no bootstrap original.
+# Substitua por policies adequadas ao escopo dos seus deployments.
+github_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]

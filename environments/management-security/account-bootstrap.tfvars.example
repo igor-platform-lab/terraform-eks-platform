@@ -1,0 +1,8 @@
+aws_region        = "us-east-2"
+aws_profile       = "terraform-management"
+environment       = "management-security"
+state_bucket_name = "<NOME_DO_BUCKET_DE_ESTADO_DA_MANAGEMENT>"
+
+github_subjects = ["repo:SEU_USUARIO/SEU_REPOSITORIO:environment:management-security"]
+
+github_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]

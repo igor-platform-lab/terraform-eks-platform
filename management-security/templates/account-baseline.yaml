@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bucket de estado Terraform, GitHub OIDC e role de deploy.
+
+Parameters:
+  GitHubSubjects:
+    Type: CommaDelimitedList
+    Description: Subjects OIDC exatos, separados por virgula. Exemplo repo:OWNER/REPO:environment:dev
+  GitHubRoleName:
+    Type: String
+    Default: TerraformDeploy
+    Description: Nome da role de deploy na nova conta.
+  GitHubPolicyArns:
+    Type: CommaDelimitedList
+    Default: arn:aws:iam::aws:policy/AdministratorAccess
+    Description: Policies da role de deploy. O padrao concede administracao completa.
+
+Resources:
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: terraform-state-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Ref: GitHubRoleName
+      ManagedPolicyArns:
+        Ref: GitHubPolicyArns
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated:
+                Ref: GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  Ref: GitHubSubjects
+
+Outputs:
+  StateBucketName:
+    Value:
+      Ref: TerraformStateBucket
+  GitHubRoleArn:
+    Value:
+      Fn::GetAtt: [GitHubDeployRole, Arn]
+  GitHubOIDCProviderArn:
+    Value:
+      Ref: GitHubOIDCProvider

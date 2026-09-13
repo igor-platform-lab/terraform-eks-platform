@@ -1,3 +1,3 @@
 bucket = "meu-bucket-tfstate"
+key    = "dev/live.tfstate"
 region = "us-east-2"
-key    = "dev/terraform.tfstate"

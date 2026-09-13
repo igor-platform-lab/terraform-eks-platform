@@ -1,0 +1,11 @@
+aws_region        = "us-east-2"
+aws_profile       = "terraform-prod"
+environment       = "prod"
+state_bucket_name = "<NOME_GLOBALMENTE_UNICO_DO_BUCKET_PROD>"
+
+# Copie o subject exato do seu repositório (incluindo IDs imutáveis, se usados).
+github_subjects = ["repo:SEU_USUARIO/SEU_REPOSITORIO:environment:prod"]
+
+# Permissão administrativa ampla, como no bootstrap original.
+# Substitua por policies adequadas ao escopo dos seus deployments.
+github_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]

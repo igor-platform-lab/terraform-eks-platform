@@ -1,0 +1,3 @@
+# Copie para blueprints.tfvars e use junto de management-security.tfvars.
+# ARN da role IAM usada por voce no console, com o caminho completo.
+control_tower_operator_arn = "arn:aws:iam::<MANAGEMENT_ACCOUNT_ID>:role/<ROLE_DO_CONSOLE>"

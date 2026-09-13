@@ -1,0 +1,39 @@
+{
+  "accessManagement": {
+    "enabled": true
+  },
+  "backup": {
+    "enabled": false
+  },
+  "centralizedLogging": {
+    "accountId": "<LOG_ARCHIVE_ACCOUNT_ID>",
+    "enabled": true,
+    "configurations": {
+      "accessLoggingBucket": {
+        "retentionDays": 365
+      },
+      "loggingBucket": {
+        "retentionDays": 365
+      }
+    }
+  },
+  "config": {
+    "accountId": "<AUDIT_ACCOUNT_ID>",
+    "enabled": true,
+    "configurations": {
+      "accessLoggingBucket": {
+        "retentionDays": 365
+      },
+      "loggingBucket": {
+        "retentionDays": 365
+      }
+    }
+  },
+  "governedRegions": [
+    "us-east-2"
+  ],
+  "securityRoles": {
+    "enabled": true,
+    "accountId": "<AUDIT_ACCOUNT_ID>"
+  }
+}

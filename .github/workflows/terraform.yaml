@@ -99,11 +99,5 @@ jobs:
       - name: Terraform Validate
         run: terraform validate -no-color
 
-      - name: Terraform Plan
-        run: >-
-          terraform plan -input=false -no-color
-          -var-file="${{ vars.TFVARS_FILE }}"
-          -out=tfplan
-
       - name: Terraform Apply
         run: terraform apply -auto-approve -input=false tfplan

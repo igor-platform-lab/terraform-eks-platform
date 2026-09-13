@@ -1,10 +1,25 @@
 # Projeto Terraform
 
-Projeto de estudo para organizar infraestrutura AWS com módulos Terraform reutilizáveis. O root ativo está em [`live/`](live/README.md); os módulos ficam em [`modules/`](modules).
+Projeto pessoal de estudo de AWS multiaccount, EKS e GitOps. Esta documentação descreve o código observado em 13/09/2026; presença de recursos no Terraform não comprova implantação na AWS.
+
+## Responsabilidades e navegação
+
+| Componente | Responsabilidade | Documentação |
+| --- | --- | --- |
+| `bootstrap/main.tf` | Preparação inicial da management: estado, GitHub OIDC, Organizations, OUs, Audit e Log Archive. É o fluxo escolhido. | [Bootstrap](bootstrap/README.md) |
+| `management-security/` | Landing zone Control Tower 4.0 e publicação do blueprint AFC na própria management. | [Governança e Account Factory](management-security/README.md) |
+| Console do Account Factory | Criação das contas de workloads com OU e blueprint selecionados. | [Uso no console](management-security/README.md#uso-no-console) |
+| `live/` | Rede e ALB nas contas de workloads; backend separado por ambiente. | [Workloads](live/README.md) |
+| `modules/` | Componentes reutilizáveis, incluindo os módulos EKS ainda sem caller. | [Contratos](#contratos-dos-módulos) |
+| `management-security/account-bootstrap/` | Alternativa preservada, com estado próprio; não participa do fluxo escolhido. | [Alternativa](management-security/account-bootstrap/README.md) |
+
+O módulo `account_baseline` configura uma conta existente via Terraform. O blueprint `account-baseline.yaml` implementa os recursos equivalentes via CloudFormation, que é o formato consumido pelo Account Factory Customization (AFC). O console não executa o módulo Terraform. SCPs são políticas do Organizations associadas às OUs, separadas do template.
+
+O escopo canônico está em `../Escopo.md`. Situação, decisões e checklist de continuidade são mantidas no Obsidian, pelo índice **00 - Índice do Vault**. Este repositório mantém contratos, operação e limitações, sem roadmap.
 
 ## Arquitetura atual
 
-O root `live` usa a região `us-east-2` e o profile `terraform-local`. Ele cria:
+O root `live` recebe região e profile por variáveis. Os arquivos locais de dev/prod usam `us-east-2`, com profiles `terraform-dev` e `terraform-prod`. Ele declara:
 
 - uma VPC `10.16.0.0/16` com DNS da VPC habilitado;
 - duas subnets públicas e duas privadas, distribuídas nas duas primeiras Availability Zones disponíveis;
@@ -23,36 +38,24 @@ O root ativo deixa de instanciar os Interface Endpoints do ECR. O tráfego exter
 
 O estado do root `live` passa a usar um backend S3 parcial, declarado em `live/00_backend.tf` e completado pelos arquivos `environments/dev/backend.hcl` e `environments/prod/backend.hcl`. Um workflow do GitHub Actions executa `plan` em pull requests e `apply` em pushes para `develop` e `main`, selecionando os GitHub Environments `dev` e `prod` conforme a branch.
 
-## Diagrama: estado atual e evolução planejada
+## Diagrama das responsabilidades atuais
 
 ```mermaid
-flowchart LR
-    subgraph Atual[Estado atual no repositório]
-        PR[Pull request] --> PLAN[GitHub Actions: plan]
-        PUSH[Push em develop/main] --> APPLY[GitHub Actions: apply]
-        PLAN --> ROOT[Root Terraform live]
-        APPLY --> ROOT
-        ROOT --> STATE[(Backend S3 por ambiente)]
-        ROOT --> VPC[VPC e subnets públicas/privadas]
-        VPC --> NAT[NAT Gateway regional]
-        VPC --> S3EP[Gateway Endpoint S3]
-        VPC --> ALB[ALB HTTPS/443]
-        ALB --> TG[Target group HTTP/80 sem targets]
-    end
-
-    subgraph Futuro[Próximas entregas]
-        PRE[Configurar bucket, OIDC e variáveis do GitHub] --> CICD[Validar pipeline remoto]
-        ACM[Provisionar certificado ACM] --> TLS[Informar certificate_arn]
-        EKS[Criar cluster e workloads EKS] --> ATTACH[Associar targets ao target group]
-        TLS --> TRAFEGO[Caminho HTTPS operacional]
-        ATTACH --> TRAFEGO
-        OBS[Adicionar retenção e observabilidade] --> OPERACAO[Operação acompanhada]
-    end
-
-    Atual -. habilita .-> Futuro
+flowchart TD
+    B[bootstrap/main.tf na management] --> O[Organizations, OUs, Audit e Log Archive]
+    B --> S[Bucket de estado e GitHub OIDC da management]
+    O --> M[management-security: landing zone 4.0]
+    S --> M
+    M --> P[Produto Service Catalog e template CloudFormation]
+    P --> F[Console do Account Factory: selecionar OU e blueprint]
+    F --> C[Conta de workload: bucket, OIDC e role]
+    C --> L[live: rede e ALB]
+    L --> V[VPC, subnets, NAT regional e Gateway Endpoint S3]
+    L --> A[ALB HTTPS 443: certificado ausente]
+    A --> T[Target group HTTP 80: sem targets]
 ```
 
-As caixas do primeiro grupo representam recursos ou configuração já presentes no código. O segundo grupo representa trabalho ainda não implementado; ele não é uma garantia de recursos atualmente provisionados.
+O desenho mostra o fluxo escolhido e o conteúdo declarado, não uma implantação confirmada. A landing zone ainda depende dos IDs reais e das roles de serviço. O EKS não está instanciado em `live/`.
 
 ### Decisão sobre VPC Endpoints
 
@@ -69,16 +72,38 @@ O módulo `endpoint_gateway` integra a arquitetura ativa por meio do caller do S
 ├── .github/
 │   └── workflows/
 │       └── terraform.yaml
+├── bootstrap/                 # main.tf, variables.tf e README.md
+├── management-security/
+│   ├── account-bootstrap/
+│   ├── 20_account_factory.tf
+│   ├── 10_controltower.tf
+│   ├── README.md
+│   └── templates/
+│       └── account-baseline.yaml
+├── landing-zone.json
 ├── environments/
 │   ├── dev/
+│   │   ├── account-bootstrap.tfvars.example
 │   │   ├── backend.hcl
 │   │   └── dev.tfvars
+│   ├── management-security/
+│   │   ├── account-bootstrap.tfvars.example
+│   │   ├── backend.hcl
+│   │   ├── management-security.tfvars  # configuração local ignorada pelo Git
+│   │   └── blueprints.tfvars.example
 │   └── prod/
+│       ├── account-bootstrap.tfvars.example
 │       ├── backend.hcl
 │       └── prod.tfvars
 ├── live/
-│   └── 00_backend.tf
+│   ├── 00_backend.tf
+│   ├── 00_providers.tf / 00_variables.tf / 00_data.tf / 00_output.tf
+│   ├── 01_*.tf / 02_*.tf / 03_endpoint_gateway.tf / 04_alb.tf / 05_s3.tf
+│   └── README.md
 └── modules/
+    ├── account_baseline/
+    ├── eks_access/
+    ├── eks_cluster/
     ├── endpoint_gateway/
     ├── endpoint_interface/
     ├── load_balancer/
@@ -95,8 +120,11 @@ O módulo `endpoint_gateway` integra a arquitetura ativa por meio do caller do S
 
 ## Execução
 
+Cada root tem seu próprio estado e execução. O bootstrap inicial segue [bootstrap/README.md](bootstrap/README.md). A landing zone e o blueprint seguem [management-security/README.md](management-security/README.md). O exemplo abaixo opera somente `live/`, com backend e variáveis reais já configurados; consulte suas limitações antes de aplicar.
+
 ```bash
 cd live
+export AWS_PROFILE=terraform-dev
 terraform init -reconfigure -backend-config=../environments/dev/backend.hcl
 terraform fmt -recursive
 terraform validate
@@ -108,12 +136,12 @@ Troque `dev` por `prod` para trabalhar com o estado e as variáveis de produçã
 
 ## Ambientes
 
-`environments/dev` e `environments/prod` não são roots Terraform independentes. Cada pasta contém um `backend.hcl`, que seleciona uma chave de estado diferente no S3, e um arquivo `.tfvars`, atualmente vazio, que usa os defaults do root `live`.
+`environments/dev` e `environments/prod` não são roots Terraform independentes. Cada pasta contém um `backend.hcl`, que seleciona uma chave de estado diferente no S3, e um arquivo `.tfvars` local, com região, profile, ambiente e tags. Esses arquivos não são versionados pelo Git; os nomes abaixo descrevem os arquivos presentes no workspace.
 
 | Ambiente | Backend | Chave do estado | Variáveis |
 | --- | --- | --- | --- |
-| `dev` | `environments/dev/backend.hcl` | `dev/terraform.tfstate` | `environments/dev/dev.tfvars` |
-| `prod` | `environments/prod/backend.hcl` | `prod/terraform.tfstate` | `environments/prod/prod.tfvars` |
+| `dev` | `environments/dev/backend.hcl` | `dev/live.tfstate` | `environments/dev/dev.tfvars` |
+| `prod` | `environments/prod/backend.hcl` | `prod/live.tfstate` | `environments/prod/prod.tfvars` |
 
 Os dois backends ainda usam `meu-bucket-tfstate` como placeholder. Substitua-o pelo bucket real antes da primeira inicialização remota.
 
@@ -125,12 +153,14 @@ O workflow [`.github/workflows/terraform.yaml`](.github/workflows/terraform.yaml
 | --- | --- | --- | --- |
 | Pull request | `develop` | `dev` | `init`, `fmt -check`, `validate` e `plan` |
 | Pull request | `main` | `prod` | `init`, `fmt -check`, `validate` e `plan` |
-| Push | `develop` | `dev` | `init`, `validate`, `plan -out=tfplan` e `apply` |
-| Push | `main` | `prod` | `init`, `validate`, `plan -out=tfplan` e `apply` |
+| Push | `develop` | `dev` | `init`, `validate` e `apply tfplan` (plano ausente no job) |
+| Push | `main` | `prod` | `init`, `validate` e `apply tfplan` (plano ausente no job) |
 
 Cada GitHub Environment precisa definir `AWS_ROLE_ARN`, `BACKEND_CONFIG` e `TFVARS_FILE`. Como o diretório de trabalho do job é `live`, os caminhos esperados são, por exemplo, `../environments/dev/backend.hcl` e `../environments/dev/dev.tfvars`.
 
-O provider ainda declara `profile = "terraform-local"`. Esse profile atende à execução local, mas não existe por padrão no runner do GitHub; a compatibilidade com as credenciais OIDC deve ser resolvida antes de considerar o pipeline operacional.
+O provider tem `aws_profile` opcional (`null` por padrão), mas os arquivos locais selecionam profiles nomeados. No runner autenticado por OIDC, o valor efetivo precisa permitir o uso dessas credenciais. O backend autentica separadamente do provider; no exemplo local, `AWS_PROFILE` atende ao backend.
+
+O job de apply usa `tfplan` sem gerá-lo nem baixá-lo. O plan do PR também não usa `-out` nem publica artefato. Portanto, o workflow atual não entrega um apply funcional. Ele executa apenas `live/`; não executa bootstrap nem management. A role `TerraformManagement` do bootstrap permite subject de branch, enquanto os jobs atuais usam subjects de GitHub Environment; são contratos diferentes.
 
 ## Contratos dos módulos
 
@@ -179,7 +209,7 @@ module "vpc" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Não cria subnets, route tables, Internet Gateway ou NAT Gateway.
 
@@ -242,11 +272,11 @@ module "subnet-private-a" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Não cria o Internet Gateway nem o NAT Gateway; apenas referencia o destino apropriado fornecido pelo caller. Como `gateway_id` e `nat_gateway` possuem padrão vazio, o caller precisa fornecer o ID compatível com o tipo da subnet para evitar uma rota inválida.
 
-O arquivo de variáveis ainda se chama `variables..tf`. O Terraform o reconhece pela extensão `.tf`, mas o nome pode ser normalizado futuramente para `variables.tf`.
+O arquivo de variáveis se chama `variables..tf`; o Terraform o reconhece pela extensão `.tf`. As rotas pública e privada fixam a região `us-east-2`; subnet e route table herdam o provider.
 
 ### `nat_gateway`
 
@@ -300,9 +330,9 @@ module "nat_gateway" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
-O módulo fixa os modos regional, público e automático. Não oferece variáveis para NAT zonal, NAT privado, endereços escolhidos pelo caller ou modo regional manual. As regras de security group, network ACL e as rotas das subnets privadas permanecem sob responsabilidade dos respectivos módulos e callers. A tag interna `Purpose = "eks-interface-endpoints"` não representa a finalidade atual do NAT e deve ser revisada futuramente.
+O módulo fixa os modos regional, público e automático. Não oferece variáveis para NAT zonal, NAT privado, endereços escolhidos pelo caller ou modo regional manual. As regras de security group, network ACL e as rotas das subnets privadas permanecem sob responsabilidade dos respectivos módulos e callers. A tag interna `Purpose = "eks-interface-endpoints"` não representa a finalidade atual do NAT.
 
 ### `endpoint_interface`
 
@@ -356,7 +386,7 @@ module "ecr_interface" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Cada instância representa um serviço. O caller precisa criar os endpoints necessários e avaliar o custo por endpoint/AZ e por volume processado.
 
@@ -422,7 +452,7 @@ module "s3_gateway" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Não cria subnets nem route tables. O caller deve fornecê-las.
 
@@ -485,7 +515,7 @@ module "sg_alb" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 O módulo não cria nem associa regras automaticamente. Cada regra necessária deve ser declarada separadamente.
 
@@ -548,7 +578,7 @@ module "egress_s3_gateway" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Cada instância cria somente uma regra. O caller precisa repetir o módulo para DNS UDP/TCP, HTTPS público ou outros destinos. O contrato atual cobre apenas IPv4 e não oferece `cidr_ipv6` nem regras sem portas, como `ip_protocol = "-1"`.
 
@@ -609,7 +639,7 @@ module "alb_ingress_https" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 Cada instância cria somente uma regra. O contrato atual cobre apenas IPv4 e exige intervalo de portas.
 
@@ -619,7 +649,7 @@ Path: [`modules/s3`](modules/s3)
 
 #### Purpose
 
-Cria um bucket S3 e gerencia seu versionamento em um recurso separado.
+Cria um bucket S3 com versionamento, criptografia e bloqueio de acesso público em recursos separados.
 
 #### Intended use
 
@@ -630,6 +660,8 @@ Criar buckets reutilizáveis com versionamento explícito. No root `live`, o mó
 - Cria `aws_s3_bucket.s3` na região informada.
 - Cria `aws_s3_bucket_versioning.s3_version` associado ao bucket.
 - Aceita somente `Enabled` ou `Suspended` como estado de versionamento.
+- Configura SSE-S3 por padrão; SSE-KMS exige `kms_key_arn` e habilita bucket key.
+- Configura os quatro bloqueios de acesso público, habilitados por padrão.
 - Não cria policy; permissões específicas de uso permanecem no caller.
 
 #### Inputs
@@ -639,6 +671,12 @@ Criar buckets reutilizáveis com versionamento explícito. No root `live`, o mó
 | `bucket` | `string` | sim | Nome globalmente único do bucket na partição AWS. |
 | `region` | `string` | sim | Região AWS do bucket. |
 | `status` | `string` | sim | Estado do versionamento: `Enabled` ou `Suspended`. |
+| `block_public_acls` | `bool` | não | Bloqueia ACLs públicas; padrão `true`. |
+| `block_public_policy` | `bool` | não | Bloqueia policies públicas; padrão `true`. |
+| `ignore_public_acls` | `bool` | não | Ignora ACLs públicas; padrão `true`. |
+| `restrict_public_buckets` | `bool` | não | Restringe buckets com policy pública; padrão `true`. |
+| `encryption_type` | `string` | não | `SSE_S3` (padrão) ou `SSE_KMS`. |
+| `kms_key_arn` | `string` | não | Padrão `null`; obrigatório quando selecionado SSE-KMS. |
 
 #### Outputs
 
@@ -664,9 +702,9 @@ module "s3_alb" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
-O módulo não cria bucket policy, public access block, lifecycle de retenção ou replicação. No caller ativo, a policy é declarada separadamente porque é específica para o serviço de entrega de logs do ALB.
+O módulo não cria bucket policy, chave KMS, lifecycle de retenção ou replicação. No caller ativo, a policy é declarada separadamente porque é específica para o serviço de entrega de logs do ALB.
 
 ### `load_balancer`
 
@@ -730,7 +768,7 @@ module "alb_internet_facing" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 O módulo não cria listener, target group, target attachments ou health check. O caller deve garantir que a bucket policy exista antes de habilitar os access logs.
 
@@ -786,7 +824,7 @@ module "alb_listener" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 O módulo oferece somente uma ação padrão `forward`. Não há validação explícita de protocolos e portas, regras adicionais, redirect, fixed response, autenticação ou suporte a uma policy TLS configurável. Um listener HTTPS/443 falha sem um `certificate_arn` válido; o caller atual ainda não fornece esse valor.
 
@@ -806,7 +844,7 @@ Definir o destino lógico de um listener antes de associar workloads. No root `l
 
 - Cria `aws_lb_target_group.target_group`.
 - Recebe nome, porta, protocolo e VPC do caller.
-- Usa os comportamentos padrão do provider para target type, health check e demais opções não declaradas.
+- Usa target type padrão `instance` e os defaults de health check e demais opções não declaradas.
 
 #### Inputs
 
@@ -841,24 +879,171 @@ module "alb_target_group" {
 }
 ```
 
-#### Limitations and follow-ups
+#### Limitations
 
 O módulo não associa targets e não expõe configurações de health check, target type, deregistration delay, stickiness ou atributos avançados.
+
+### `account_baseline`
+
+Path: [`modules/account_baseline`](modules/account_baseline)
+
+#### Purpose
+
+Preparar uma conta AWS existente com bucket de estado Terraform, provider OIDC do GitHub e role de deploy.
+
+#### Intended use
+
+Chamado pela alternativa preservada [`management-security/account-bootstrap/`](management-security/account-bootstrap/README.md), fora do fluxo escolhido. O bootstrap inicial escolhido implementa seus recursos diretamente em `bootstrap/main.tf`. Nas contas de workloads, o template CloudFormation do Account Factory fornece os recursos equivalentes.
+
+#### Resources and behavior
+
+- Instancia o módulo `s3` com versionamento `Enabled`, criptografia SSE-S3 e os quatro bloqueios de acesso público habilitados por padrão.
+- Cria `aws_iam_openid_connect_provider.github` para `https://token.actions.githubusercontent.com`, com audience `sts.amazonaws.com`; não fixa thumbprint.
+- Cria `aws_iam_role.github_actions`. A trust policy exige audience STS e um dos subjects exatos recebidos, com `StringEquals`.
+- Cria um `aws_iam_role_policy_attachment.github_actions` por ARN informado. Não concede policy administrativa implicitamente.
+- Usa região e tags padrão do provider herdado do caller. O módulo não configura credenciais nem backend.
+
+#### Inputs
+
+| Nome | Tipo | Obrigatório | Finalidade |
+| --- | --- | --- | --- |
+| `state_bucket_name` | `string` | sim | Nome globalmente único do bucket. |
+| `github_role_name` | `string` | não | Nome da role; padrão `TerraformDeploy`. |
+| `github_subjects` | `set(string)` | sim | Subjects OIDC completos comparados por igualdade exata. |
+| `github_policy_arns` | `set(string)` | sim | ARNs de policies existentes a conceder à role. |
+
+#### Outputs
+
+| Nome | Descrição | Consumidores |
+| --- | --- | --- |
+| `state_bucket_name` | Nome do bucket. | Output do root e configuração de backends. |
+| `state_bucket_arn` | ARN do bucket. | Disponível para callers; não exportado pelo root atual. |
+| `github_oidc_provider_arn` | ARN do OIDC. | Output do root. |
+| `github_role_arn` | ARN da role. | Output do root; variável `AWS_ROLE_ARN` do GitHub. |
+
+#### Dependencies and assumptions
+
+- Provider AWS `~> 6.0`.
+- Conta existente e credenciais com permissões para criar os recursos. A conta de destino é determinada pelas credenciais do provider.
+- Depende de `modules/s3`; as referências criam dependência entre o provider OIDC, a role e os attachments.
+- Uma instância por conta/estado. Bucket, OIDC e role existentes precisam ser reconciliados antes da adoção.
+- O caller alternativo usa estado local porque cria o bucket; o módulo em si não define backend. Veja execução e migração no README desse root.
+
+#### Example
+
+```hcl
+module "account_baseline" {
+  source = "../../modules/account_baseline"
+
+  state_bucket_name = "terraform-state-<ACCOUNT_ID>-us-east-2"
+  github_subjects   = ["repo:OWNER/REPO:environment:dev"]
+  # Exemplo somente leitura; escolha as permissões necessárias ao deployment.
+  github_policy_arns = ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+}
+```
+
+#### Limitations
+
+Não cria contas, SCPs, Control Tower, usuários, integração Entra/Identity Center ou workloads. Não adota recursos existentes automaticamente nem migra o bootstrap anterior. Não cria policies customizadas, chave KMS ou retenção de versões do bucket. Subjects precisam corresponder ao token real do GitHub; restrições de branches para jobs com environment são configuradas no GitHub. Os exemplos de execução por ambiente usam `AdministratorAccess` explicitamente, reproduzindo o bootstrap original com permissões amplas.
 
 ## Root ativo
 
 Consulte [`live/README.md`](live/README.md) para o mapa dos arquivos, fluxo de dependências, recursos instanciados e limitações do ambiente atual.
 
-## Próximos passos
+## Módulos EKS disponíveis, sem caller ativo
 
-- Criar ou selecionar o bucket S3 de estado e substituir `meu-bucket-tfstate` nos dois arquivos `backend.hcl`.
-- Configurar os GitHub Environments `dev` e `prod`, a role OIDC e as variáveis `AWS_ROLE_ARN`, `BACKEND_CONFIG` e `TFVARS_FILE`.
-- Compatibilizar a configuração do provider com execução local por profile e execução no GitHub Actions por OIDC.
-- Validar `plan` em pull request antes de habilitar o primeiro `apply` automático por push.
-- Associar `module.sg_eks` aos nodes ou pods do EKS quando o cluster for criado.
-- Criar e validar um certificado ACM e informar seu ARN ao listener HTTPS/443.
-- Associar targets HTTP/80 ao target group do ALB, de forma compatível com o tipo de target e com o workload do EKS.
-- Executar `terraform init`, `terraform validate` e `terraform plan` após concluir a transição.
-- Monitorar custos e confirmar que o tráfego S3 usa o Gateway Endpoint em vez do NAT.
-- Remover valores regionais fixos dos módulos caso o projeto precise suportar outras regiões.
-- Definir se `environments/dev` e `environments/prod` serão roots completos ou apenas conjuntos de variáveis.
+### `eks_cluster`
+
+Path: [`modules/eks_cluster`](modules/eks_cluster)
+
+#### Purpose
+
+Declarar o control plane do EKS e sua role IAM.
+
+#### Intended use
+
+Base parcial para um cluster; não é instanciado em `live/`.
+
+#### Resources and behavior
+
+Cria `aws_eks_cluster.cluster`, `aws_iam_role.cluster_role` (`<name>-role`) e o attachment de `AmazonEKSClusterPolicy`. A autenticação do cluster usa `API`. O cluster depende explicitamente do attachment da policy. A trust policy da role permite `sts:AssumeRole` e `sts:TagSession` para `eks.amazonaws.com`.
+
+#### Inputs
+
+| Nome | Tipo | Obrigatório | Finalidade |
+| --- | --- | --- | --- |
+| `name` | `string` | sim | Nome do cluster e prefixo da role. |
+| `version` | `string` | sim | Versão Kubernetes suportada na região. |
+| `subnet_ids` | `list(string)` | sim | Subnets do control plane. |
+
+#### Outputs
+
+Não possui outputs.
+
+#### Dependencies and assumptions
+
+Herda o provider do caller. Requer subnets compatíveis com EKS, em pelo menos duas AZs, e permissões IAM/EKS. O ARN da policy usa a partição `aws`. Subnets privadas não tornam, por si só, o endpoint Kubernetes privado.
+
+#### Example
+
+Exemplo de contrato, ainda sem caller no root; substitua a versão por uma suportada:
+
+```hcl
+module "eks_cluster" {
+  source     = "../modules/eks_cluster"
+  name       = "platform-dev"
+  version    = "<VERSAO_KUBERNETES>"
+  subnet_ids = [module.subnet-private-a.subnet_id, module.subnet-private-b.subnet_id]
+}
+```
+
+#### Limitations
+
+Não declara nodes, add-ons, logs do control plane, OIDC para pods, SGs adicionais ou configuração explícita de acesso ao endpoint. A configuração padrão do EKS mantém acesso público ao endpoint e acesso privado desabilitado; portanto o objetivo de endpoint privado ainda não está implementado. Veja [acesso ao endpoint EKS](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html).
+
+### `eks_access`
+
+Path: [`modules/eks_access`](modules/eks_access)
+
+#### Purpose
+
+Conceder acesso administrativo Kubernetes a uma role IAM existente.
+
+#### Intended use
+
+Receber a role de um permission set do IAM Identity Center na conta do cluster. Não é instanciado em `live/`.
+
+#### Resources and behavior
+
+Cria `aws_eks_access_entry.platform_admins` do tipo `STANDARD` e `aws_eks_access_policy_association.platform_admins`, com `AmazonEKSClusterAdminPolicy` e escopo `cluster`.
+
+#### Inputs
+
+| Nome | Tipo | Obrigatório | Finalidade |
+| --- | --- | --- | --- |
+| `cluster_name` | `string` | sim | Nome do cluster. |
+| `platform_admin_role_arn` | `string` | sim | ARN IAM da role, incluindo seu path; não um ARN de sessão STS. |
+
+#### Outputs
+
+Não possui outputs.
+
+#### Dependencies and assumptions
+
+O cluster deve aceitar access entries (`API` ou `API_AND_CONFIG_MAP`) e a role precisa existir. Provider herdado do caller; ARN da access policy fixo na partição `aws`. A associação referencia as variáveis diretamente, sem dependência da access entry; o grafo atual permite criação paralela, sujeita a falha de ordenação.
+
+#### Example
+
+Exemplo ilustrativo para cluster e role existentes:
+
+```hcl
+module "eks_access" {
+  source                  = "../modules/eks_access"
+  cluster_name            = "platform-dev"
+  platform_admin_role_arn = "<ARN_IAM_COMPLETO_DA_ROLE_DO_PERMISSION_SET>"
+}
+```
+
+#### Limitations
+
+Não cria Identity Center, permission sets, assignments, usuários ou integração Entra. O acesso é administrativo para todo o cluster; não há input para escopo por namespace. A policy EKS autoriza operações Kubernetes e não concede, por si só, permissões para APIs AWS. Autorização não fornece conectividade até um endpoint privado.
