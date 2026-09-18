@@ -112,4 +112,4 @@ resource "aws_organizations_account" "log_archive_account" {
   name      = "Log Archive"
   email     = var.log_archive_account_email
   parent_id = aws_organizations_organizational_unit.security.id
-}
+} 

@@ -7,3 +7,6 @@ crash.*.log
 *.tfvars.json
 .terraformrc
 terraform.rc
+
+# Alternate Terraform data directories (TF_DATA_DIR)
+**/.terraform-*/
