@@ -1,5 +1,5 @@
 module "subnet-public-a" {
-  source            = "../modules/subnet"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/subnet?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id            = module.vpc.vpc_id
   availability_zone = data.aws_availability_zones.available.names[0]
   cidr_block        = "10.16.0.0/20"
@@ -18,7 +18,7 @@ module "subnet-public-a" {
 }
 
 module "subnet-public-b" {
-  source            = "../modules/subnet"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/subnet?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id            = module.vpc.vpc_id
   availability_zone = data.aws_availability_zones.available.names[1]
   depends_on        = [module.vpc]
@@ -36,7 +36,7 @@ module "subnet-public-b" {
 }
 
 module "subnet-private-a" {
-  source            = "../modules/subnet"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/subnet?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id            = module.vpc.vpc_id
   availability_zone = data.aws_availability_zones.available.names[0]
   cidr_block        = "10.16.32.0/20"
@@ -54,7 +54,7 @@ module "subnet-private-a" {
 }
 
 module "subnet-private-b" {
-  source            = "../modules/subnet"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/subnet?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id            = module.vpc.vpc_id
   nat_gateway       = module.nat_gateway.nat_id
   availability_zone = data.aws_availability_zones.available.names[1]

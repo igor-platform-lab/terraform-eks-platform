@@ -118,6 +118,10 @@ O módulo `endpoint_gateway` integra a arquitetura ativa por meio do caller do S
     └── vpc/
 ```
 
+## Origem dos módulos
+
+O root `live/` instala os módulos do [repositório terraform-modules](https://github.com/igor-platform-lab/terraform-modules) na revisão `55c042f2753c907bf01cda102eea8a33756d2a39`. O Git precisa de acesso de leitura para que `terraform init` instale os módulos. Os endereços dos módulos e recursos no state continuam os mesmos.
+
 ## Execução
 
 Cada root tem seu próprio estado e execução. O bootstrap inicial segue [bootstrap/README.md](bootstrap/README.md). A landing zone e o blueprint seguem [management-security/README.md](management-security/README.md). O exemplo abaixo opera somente `live/`, com backend e variáveis reais já configurados; consulte suas limitações antes de aplicar.
@@ -166,7 +170,7 @@ O job de apply usa `tfplan` sem gerá-lo nem baixá-lo. O plan do PR também nã
 
 ### `vpc`
 
-Path: [`modules/vpc`](modules/vpc)
+Path: [`modules/vpc`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/vpc)
 
 #### Purpose
 
@@ -203,7 +207,7 @@ Usar como base para subnets, gateways, endpoints e security groups.
 
 ```hcl
 module "vpc" {
-  source     = "../modules/vpc"
+  source     = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/vpc?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   cidr_block = "10.16.0.0/16"
   tags       = var.environment_tags
 }
@@ -215,7 +219,7 @@ Não cria subnets, route tables, Internet Gateway ou NAT Gateway.
 
 ### `subnet`
 
-Path: [`modules/subnet`](modules/subnet)
+Path: [`modules/subnet`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/subnet)
 
 #### Purpose
 
@@ -263,7 +267,7 @@ Usar para subnets públicas ou privadas. Subnets públicas recebem rota para o I
 
 ```hcl
 module "subnet-private-a" {
-  source            = "../modules/subnet"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/subnet?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id            = module.vpc.vpc_id
   availability_zone = data.aws_availability_zones.available.names[0]
   cidr_block        = "10.16.32.0/20"
@@ -280,7 +284,7 @@ O arquivo de variáveis se chama `variables..tf`; o Terraform o reconhece pela e
 
 ### `nat_gateway`
 
-Path: [`modules/nat_gateway`](modules/nat_gateway)
+Path: [`modules/nat_gateway`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/nat_gateway)
 
 #### Purpose
 
@@ -322,7 +326,7 @@ Usar quando workloads privados precisam iniciar conexões para a Internet ou par
 
 ```hcl
 module "nat_gateway" {
-  source = "../modules/nat_gateway"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/nat_gateway?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id = module.vpc.vpc_id
   tags   = var.environment_tags
 
@@ -336,7 +340,7 @@ O módulo fixa os modos regional, público e automático. Não oferece variávei
 
 ### `endpoint_interface`
 
-Path: [`modules/endpoint_interface`](modules/endpoint_interface)
+Path: [`modules/endpoint_interface`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/endpoint_interface)
 
 #### Purpose
 
@@ -377,7 +381,7 @@ Não possui outputs.
 
 ```hcl
 module "ecr_interface" {
-  source             = "../modules/endpoint_interface"
+  source             = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/endpoint_interface?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id             = module.vpc.vpc_id
   service_name       = "com.amazonaws.us-east-2.ecr.dkr"
   security_group_ids = [module.sg_interface.sg_id]
@@ -398,7 +402,7 @@ Os antigos callers de `ecr.api` e `ecr.dkr` foram retirados do root `live` na mi
 
 ### `endpoint_gateway`
 
-Path: [`modules/endpoint_gateway`](modules/endpoint_gateway)
+Path: [`modules/endpoint_gateway`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/endpoint_gateway)
 
 #### Purpose
 
@@ -441,7 +445,7 @@ Usar principalmente para S3 ou DynamoDB quando for desejável manter esse tráfe
 
 ```hcl
 module "s3_gateway" {
-  source           = "../modules/endpoint_gateway"
+  source           = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/endpoint_gateway?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id           = module.vpc.vpc_id
   service_name     = "com.amazonaws.us-east-2.s3"
   route_tables_ids = [
@@ -464,7 +468,7 @@ O caller ativo associa o endpoint S3 às duas route tables privadas. A rota base
 
 ### `security_group`
 
-Path: [`modules/security_group`](modules/security_group)
+Path: [`modules/security_group`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/security_group)
 
 #### Purpose
 
@@ -507,7 +511,7 @@ Criar o SG de cada componente, como ALB ou EKS, e adicionar regras de ingress e 
 
 ```hcl
 module "sg_alb" {
-  source      = "../modules/security_group"
+  source      = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name        = "alb"
   description = "Security group for the internet-facing ALB"
   vpc_id      = module.vpc.vpc_id
@@ -521,7 +525,7 @@ O módulo não cria nem associa regras automaticamente. Cada regra necessária d
 
 ### `security_group_egress_rule`
 
-Path: [`modules/security_group_egress_rule`](modules/security_group_egress_rule)
+Path: [`modules/security_group_egress_rule`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/security_group_egress_rule)
 
 #### Purpose
 
@@ -566,7 +570,7 @@ Não possui outputs.
 
 ```hcl
 module "egress_s3_gateway" {
-  source = "../modules/security_group_egress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_eks.sg_id
   description       = "HTTPS to S3 Gateway Endpoint"
@@ -584,7 +588,7 @@ Cada instância cria somente uma regra. O caller precisa repetir o módulo para 
 
 ### `security_group_ingress_rule`
 
-Path: [`modules/security_group_ingress_rule`](modules/security_group_ingress_rule)
+Path: [`modules/security_group_ingress_rule`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/security_group_ingress_rule)
 
 #### Purpose
 
@@ -627,7 +631,7 @@ Não possui outputs.
 
 ```hcl
 module "alb_ingress_https" {
-  source = "../modules/security_group_ingress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_ingress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_alb.sg_id
   description       = "HTTPS from the internet"
@@ -645,7 +649,7 @@ Cada instância cria somente uma regra. O contrato atual cobre apenas IPv4 e exi
 
 ### `s3`
 
-Path: [`modules/s3`](modules/s3)
+Path: [`modules/s3`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/s3)
 
 #### Purpose
 
@@ -695,7 +699,7 @@ Criar buckets reutilizáveis com versionamento explícito. No root `live`, o mó
 
 ```hcl
 module "s3_alb" {
-  source = "../modules/s3"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/s3?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   region = data.aws_region.current.region
   bucket = "loglume-${var.environment}-alb-access-logs-${data.aws_region.current.region}-${data.aws_caller_identity.current.account_id}"
   status = "Enabled"
@@ -708,7 +712,7 @@ O módulo não cria bucket policy, chave KMS, lifecycle de retenção ou replica
 
 ### `load_balancer`
 
-Path: [`modules/load_balancer`](modules/load_balancer)
+Path: [`modules/load_balancer`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/load_balancer)
 
 #### Purpose
 
@@ -755,7 +759,7 @@ Criar o ALB internet-facing nas duas subnets públicas e associar o SG do ALB.
 
 ```hcl
 module "alb_internet_facing" {
-  source             = "../modules/load_balancer"
+  source             = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/load_balancer?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name               = "eks-internet-facing"
   internal           = false
   subnets_ids        = [module.subnet-public-a.subnet_id, module.subnet-public-b.subnet_id]
@@ -774,7 +778,7 @@ O módulo não cria listener, target group, target attachments ou health check. 
 
 ### `load_balancer_listener`
 
-Path: [`modules/load_balancer_listener`](modules/load_balancer_listener)
+Path: [`modules/load_balancer_listener`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/load_balancer_listener)
 
 #### Purpose
 
@@ -815,7 +819,7 @@ Não possui outputs.
 
 ```hcl
 module "alb_listener" {
-  source            = "../modules/load_balancer_listener"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/load_balancer_listener?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   port              = 443
   load_balancer_arn = module.alb_internet_facing.alb_arn
   protocol          = "HTTPS"
@@ -830,7 +834,7 @@ O módulo oferece somente uma ação padrão `forward`. Não há validação exp
 
 ### `target_group`
 
-Path: [`modules/target_group`](modules/target_group)
+Path: [`modules/target_group`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/target_group)
 
 #### Purpose
 
@@ -871,7 +875,7 @@ Definir o destino lógico de um listener antes de associar workloads. No root `l
 
 ```hcl
 module "alb_target_group" {
-  source   = "../modules/target_group"
+  source   = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/target_group?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name     = "eks-workloads-http"
   port     = 80
   vpc_id   = module.vpc.vpc_id
@@ -885,7 +889,7 @@ O módulo não associa targets e não expõe configurações de health check, ta
 
 ### `account_baseline`
 
-Path: [`modules/account_baseline`](modules/account_baseline)
+Path: [`modules/account_baseline`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/account_baseline)
 
 #### Purpose
 
@@ -933,7 +937,7 @@ Chamado pela alternativa preservada [`management-security/account-bootstrap/`](m
 
 ```hcl
 module "account_baseline" {
-  source = "../../modules/account_baseline"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/account_baseline?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   state_bucket_name = "terraform-state-<ACCOUNT_ID>-us-east-2"
   github_subjects   = ["repo:OWNER/REPO:environment:dev"]
@@ -954,7 +958,7 @@ Consulte [`live/README.md`](live/README.md) para o mapa dos arquivos, fluxo de d
 
 ### `eks_cluster`
 
-Path: [`modules/eks_cluster`](modules/eks_cluster)
+Path: [`modules/eks_cluster`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/eks_cluster)
 
 #### Purpose
 
@@ -990,7 +994,7 @@ Exemplo de contrato, ainda sem caller no root; substitua a versão por uma supor
 
 ```hcl
 module "eks_cluster" {
-  source     = "../modules/eks_cluster"
+  source     = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/eks_cluster?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name       = "platform-dev"
   version    = "<VERSAO_KUBERNETES>"
   subnet_ids = [module.subnet-private-a.subnet_id, module.subnet-private-b.subnet_id]
@@ -1003,7 +1007,7 @@ Não declara nodes, add-ons, logs do control plane, OIDC para pods, SGs adiciona
 
 ### `eks_access`
 
-Path: [`modules/eks_access`](modules/eks_access)
+Path: [`modules/eks_access`](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/eks_access)
 
 #### Purpose
 
@@ -1038,7 +1042,7 @@ Exemplo ilustrativo para cluster e role existentes:
 
 ```hcl
 module "eks_access" {
-  source                  = "../modules/eks_access"
+  source                  = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/eks_access?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   cluster_name            = "platform-dev"
   platform_admin_role_arn = "<ARN_IAM_COMPLETO_DA_ROLE_DO_PERMISSION_SET>"
 }

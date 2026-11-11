@@ -1,5 +1,5 @@
 module "s3_alb" {
-  source = "../modules/s3"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/s3?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   region = data.aws_region.current.region
   bucket = "loglume-${var.environment}-alb-access-logs-${data.aws_region.current.region}-${data.aws_caller_identity.current.account_id}"
   status = "Enabled"

@@ -1,7 +1,7 @@
 module "sg_eks" {
   name        = "eks"
   description = "Security group for EKS workloads"
-  source      = "../modules/security_group"
+  source      = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id      = module.vpc.vpc_id
   tags = merge(
     var.environment_tags,
@@ -13,7 +13,7 @@ module "sg_eks" {
 }
 
 module "egress_dns_udp" {
-  source = "../modules/security_group_egress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_eks.sg_id
   description       = "DNS UDP to VPC resolver"
@@ -25,7 +25,7 @@ module "egress_dns_udp" {
 }
 
 module "egress_dns_tcp" {
-  source = "../modules/security_group_egress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_eks.sg_id
   description       = "DNS TCP to VPC resolver"
@@ -37,7 +37,7 @@ module "egress_dns_tcp" {
 }
 
 module "egress_https_internet" {
-  source = "../modules/security_group_egress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_eks.sg_id
   description       = "HTTPS internet access through NAT"
@@ -49,7 +49,7 @@ module "egress_https_internet" {
 }
 
 module "egress_s3_gateway" {
-  source = "../modules/security_group_egress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_eks.sg_id
   description       = "HTTPS to S3 Gateway Endpoint"

@@ -1,5 +1,5 @@
 module "alb_internet_facing" {
-  source             = "../modules/load_balancer"
+  source             = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/load_balancer?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name               = "eks-internet-facing"
   subnets_ids        = [module.subnet-public-b.subnet_id, module.subnet-public-a.subnet_id]
   internal           = false
@@ -17,7 +17,7 @@ module "alb_internet_facing" {
 }
 
 module "alb_listener" {
-  source            = "../modules/load_balancer_listener"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/load_balancer_listener?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   port              = 443
   load_balancer_arn = module.alb_internet_facing.alb_arn
   protocol          = "HTTPS"
@@ -25,7 +25,7 @@ module "alb_listener" {
 }
 
 module "alb_target_group" {
-  source   = "../modules/target_group"
+  source   = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/target_group?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   name     = "eks-workloads-http"
   port     = 80
   vpc_id   = module.vpc.vpc_id
@@ -34,7 +34,7 @@ module "alb_target_group" {
 }
 
 module "sg_alb" {
-  source      = "../modules/security_group"
+  source      = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   vpc_id      = module.vpc.vpc_id
   name        = "alb"
   description = "Security group for the internet-facing ALB"
@@ -48,7 +48,7 @@ module "sg_alb" {
 }
 
 module "alb_ingress_https" {
-  source = "../modules/security_group_ingress_rule"
+  source = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_ingress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
 
   security_group_id = module.sg_alb.sg_id
   description       = "HTTPS from the internet"
@@ -60,7 +60,7 @@ module "alb_ingress_https" {
 }
 
 module "alb_egress_eks" {
-  source            = "../modules/security_group_egress_rule"
+  source            = "git::https://github.com/igor-platform-lab/terraform-modules.git//modules/security_group_egress_rule?ref=55c042f2753c907bf01cda102eea8a33756d2a39"
   from_port         = 80
   to_port           = 80
   security_group_id = module.sg_alb.sg_id

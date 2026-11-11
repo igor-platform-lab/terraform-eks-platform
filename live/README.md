@@ -4,6 +4,10 @@ Esta pasta é o root Terraform de workloads. Bootstrap e management são roots i
 
 O root declara um backend S3 parcial em `00_backend.tf`. Bucket, região e chave são fornecidos no `terraform init` por `../environments/dev/backend.hcl` ou `../environments/prod/backend.hcl`; assim, os dois ambientes reutilizam a mesma configuração Terraform e mantêm estados separados.
 
+## Módulos via Git
+
+Todos os blocos `module` de `live/` usam o repositório [terraform-modules](https://github.com/igor-platform-lab/terraform-modules) com a revisão `55c042f2753c907bf01cda102eea8a33756d2a39`. Ao atualizar o `source`, rode `terraform init`. Para repositório privado, configure acesso Git de leitura também no runner do CI.
+
 ## Configuração atual
 
 - Provider AWS `~> 6.0`, região obrigatória e profile opcional. Os `.tfvars` locais usam `us-east-2` e profiles `terraform-dev`/`terraform-prod`.
@@ -85,7 +89,7 @@ A rota da prefix list do S3 é mais específica que `0.0.0.0/0` e, por longest p
 | `04_alb.tf` | ALB internet-facing, listener, target group, SG do ALB e regras de ingress/egress. |
 | `05_s3.tf` | Bucket versionado e bucket policy dos access logs do ALB. |
 
-O arquivo `03_endpoint_interface.tf` foi retirado do root ativo. O módulo reutilizável continua disponível em `../modules/endpoint_interface`.
+O arquivo `03_endpoint_interface.tf` foi retirado do root ativo. O módulo reutilizável continua disponível no [repositório compartilhado](https://github.com/igor-platform-lab/terraform-modules/tree/55c042f2753c907bf01cda102eea8a33756d2a39/modules/endpoint_interface).
 
 ## Estado remoto e automação
 
